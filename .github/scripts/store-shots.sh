@@ -28,6 +28,15 @@ PY
   done
   echo "could not find: $1"; return 1
 }
+# Leave the light show and make sure the home screen is back.
+back_home() {
+  for i in 1 2 3; do
+    adb shell input keyevent KEYCODE_BACK; sleep 2
+    adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1
+    grep -q 'Party Lights' ui.xml && return 0
+  done
+  adb shell am force-stop $PKG; adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1; sleep 6
+}
 scroll_top() { for i in 1 2 3 4 5; do adb shell input swipe 540 700 540 2000 200; done; sleep 1; }
 shot() { sleep "${2:-1}"; adb exec-out screencap -p > "$OUT/$1.png"; }
 
@@ -41,6 +50,8 @@ adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 
 adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4
 adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
 
+# Skip the one-time "Viewing full screen" notice that covers immersive apps
+adb shell settings put secure immersive_mode_confirmations confirmed
 adb install -r "$APK"
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
 sleep 8
@@ -57,7 +68,7 @@ for mode in "Disco" "Lasers" "Kaleidoscope" "Tunnel" "Aurora" "Trippy Swirl" "La
   tap_text "START THE PARTY" || continue
   shot "$n-show-controls-${mode// /-}" 2.5
   shot "$n-show-${mode// /-}" 9
-  adb shell input keyevent KEYCODE_BACK; sleep 2
+  back_home
   n=$((n + 1))
 done
 
@@ -67,7 +78,7 @@ for pair in "Kaleidoscope:Neon" "Tunnel:Fire" "Disco:Ocean" "Aurora:Sunset"; do
   scroll_top; tap_text "$mode"; tap_text "$pal"
   scroll_top; tap_text "START THE PARTY" || continue
   shot "$n-show-$mode-$pal" 9
-  adb shell input keyevent KEYCODE_BACK; sleep 2
+  back_home
   n=$((n + 1))
 done
 
@@ -76,7 +87,7 @@ scroll_top; tap_text "LED Text"; tap_text "Rainbow"
 adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
 scroll_top
 shot 30-home-ledtext 1
-scroll_top; tap_text "START THE PARTY" && { shot 31-show-LED-text 9; adb shell input keyevent KEYCODE_BACK; sleep 2; }
+scroll_top; tap_text "START THE PARTY" && { shot 31-show-LED-text 9; back_home; }
 
 # Home screen scrolled, to show settings
 scroll_top; shot 40-home-top 1
